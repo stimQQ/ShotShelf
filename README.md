@@ -19,9 +19,19 @@ A tiny macOS menu bar screenshot tool: captures go straight to the clipboard and
 - **中英文界面**：默认跟随系统语言，也可以在设置里随时切换，立即生效
 - 全局快捷键不需要辅助功能权限；带刘海的 MacBook 上图标被挡住时，用快捷键也能打开面板
 
-## 安装
+## 下载安装
 
-需要 macOS 14 或更新版本，以及 Xcode 或 Command Line Tools（Swift 5.9+）。目前没有提供打包好的安装包，从源码构建：
+需要 macOS 14 或更新版本，Apple 芯片和 Intel 芯片的 Mac 都能用。
+
+1. 到 [Releases](https://github.com/stimQQ/ShotShelf/releases/latest) 下载最新的 `ShotShelf-x.y.z.dmg`
+2. 打开 dmg，把 ShotShelf 拖进「应用程序」
+3. 从「应用程序」里打开 ShotShelf，菜单栏右上角会出现一个取景框图标
+
+安装包已用 Developer ID 签名并经过苹果公证，双击就能打开。
+
+## 从源码构建
+
+需要 Xcode 或 Command Line Tools（Swift 5.9+）：
 
 ```bash
 git clone https://github.com/stimQQ/ShotShelf.git
@@ -30,11 +40,13 @@ cd ShotShelf
 open build/ShotShelf.app        # 想常驻可以拖进「应用程序」文件夹
 ```
 
-第一次截图时需要在「系统设置 › 隐私与安全性 › 录屏与系统录音」里允许 ShotShelf，然后点面板里的「重新启动」。
-macOS 15 可能还会弹窗询问是否允许 ShotShelf 直接访问屏幕，选允许即可。
-
 `build.sh` 会优先用本机钥匙串里的 Apple Development 证书签名，这样重新构建后录屏权限还在；没有证书时退回 ad-hoc 签名，
 每次重新构建后都要在系统设置里把 ShotShelf 的开关关掉再打开一次。
+
+## 第一次使用
+
+第一次截图时，按面板上的提示在「系统设置 › 隐私与安全性 › 录屏与系统录音」里打开 ShotShelf，然后点面板里的「重新启动」。
+macOS 15 可能还会弹窗询问是否允许 ShotShelf 直接访问屏幕，选允许即可。
 
 ## 用法
 
@@ -77,6 +89,10 @@ SHOTSHELF_DIR=/tmp/x .build/debug/ShotShelf --snapshot out.png a.png   # 离屏�
 ```
 
 `SHOTSHELF_DIR` 指向一个临时目录，调试时就不会动到真实的截图记录。
+
+发布安装包用 `./release.sh`：构建通用二进制、用 Developer ID 签名、提交苹果公证，产物是 `dist/ShotShelf-<版本>.dmg`。
+需要钥匙串里有 Developer ID Application 证书，以及一个 notarytool 凭据（用法见脚本开头的注释）。
+应用图标由 `swift tools/make-icon.swift` 生成。
 
 ## 许可证
 
