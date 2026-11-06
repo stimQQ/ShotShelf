@@ -1,0 +1,48 @@
+import AppKit
+
+let args = CommandLine.arguments
+
+// Debug helpers: `ShotShelf --ocr <image>` prints recognized text,
+// `ShotShelf --snapshot <out.png> [--dark] <images...>` renders the panel offscreen.
+if let i = args.firstIndex(of: "--ocr"), i + 1 < args.count {
+    print(OCR.text(from: URL(fileURLWithPath: args[i + 1])))
+    exit(0)
+}
+
+let app = NSApplication.shared
+
+if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
+    let output = URL(fileURLWithPath: args[i + 1])
+    let dark = args.contains("--dark")
+    let images = args[(i + 2)...].filter { !$0.hasPrefix("--") }.map { URL(fileURLWithPath: $0) }
+    MainActor.assumeIsolated { DevSnapshot.run(output: output, images: images, dark: dark) }
+    exit(0)
+}
+
+if let i = args.firstIndex(of: "--preview"), i + 1 < args.count {
+    let seconds = Double(args[i + 1]) ?? 5
+    let dark = args.contains("--dark")
+    let images = args[(i + 2)...].filter { !$0.hasPrefix("--") }.map { URL(fileURLWithPath: $0) }
+    MainActor.assumeIsolated { DevSnapshot.preview(seconds: seconds, images: images, dark: dark, toast: !args.contains("--no-toast")) }
+    exit(0)
+}
+
+if let i = args.firstIndex(of: "--overlay-snapshot"), i + 2 < args.count {
+    let output = URL(fileURLWithPath: args[i + 1]), background = URL(fileURLWithPath: args[i + 2])
+    MainActor.assumeIsolated { DevSnapshot.overlay(output: output, background: background) }
+    exit(0)
+}
+
+if let i = args.firstIndex(of: "--grab"), i + 1 < args.count {
+    let folder = URL(fileURLWithPath: args[i + 1])
+    Task { @MainActor in
+        await DevSnapshot.grab(folder: folder)
+        exit(0)
+    }
+    app.run()
+}
+
+let delegate = MainActor.assumeIsolated { AppDelegate() }
+app.delegate = delegate
+app.setActivationPolicy(.accessory)
+app.run()
