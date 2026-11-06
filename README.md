@@ -2,7 +2,7 @@
 
 macOS 菜单栏截图小工具：截图自动进剪贴板，留在一个毛玻璃小面板里随时找回；截图时可以打码、识字（离线 OCR）。免费开源。
 
-A tiny macOS menu bar screenshot tool: captures go straight to the clipboard and stay in a frosted-glass history panel. Mosaic redaction and offline OCR (Apple Vision) right in the capture toolbar. Free and open source (MIT).
+A tiny macOS menu bar screenshot tool: captures go straight to the clipboard and stay in a frosted-glass history panel. Mosaic redaction and offline OCR (Apple Vision) right in the capture toolbar. English and Chinese UI. Free and open source (MIT).
 
 <p>
   <img src="docs/panel-light.png" width="300" alt="浅色模式的截图记录面板">
@@ -16,6 +16,7 @@ A tiny macOS menu bar screenshot tool: captures go straight to the clipboard and
 - **截图时识字**：点「识字」把选区里的文字识别出来并复制，中英文混排也能认，全程离线
 - **拖出去就能发**：记录里的图片可以直接拖到微信、桌面等地方
 - **几乎没有存在感**：只在菜单栏有一个图标，不占程序坞；内存约 30 MB
+- **中英文界面**：默认跟随系统语言，也可以在设置里随时切换，立即生效
 - 全局快捷键不需要辅助功能权限；带刘海的 MacBook 上图标被挡住时，用快捷键也能打开面板
 
 ## 安装
@@ -54,7 +55,7 @@ macOS 15 可能还会弹窗询问是否允许 ShotShelf 直接访问屏幕，选
 - **完成**：复制图片，也可以按回车、`⌘C` 或双击选区
 - `Esc` 取消；右键清掉当前选区重新选
 
-截图记录面板：左上角打开截图文件夹，右上角齿轮是设置（开机自动启动、退出）。拖顶部的小横条可以移动面板，它会记住位置。
+截图记录面板：左上角打开截图文件夹，右上角齿轮是设置（语言 / Language、开机自动启动、退出）。拖顶部的小横条可以移动面板，它会记住位置。
 
 截图后不会自动识别文字，只有点「识字」或在记录里点「复制文字」时才识别。
 

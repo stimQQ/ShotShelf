@@ -169,11 +169,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func fullMenu() -> NSMenu {
         let menu = NSMenu()
-        addItem(to: menu, "截图", #selector(menuCaptureImage), key: "a")
-        addItem(to: menu, "截图识字", #selector(menuCaptureText), key: "o")
-        addItem(to: menu, "截图记录", #selector(menuShowPanel), key: "s")
+        addItem(to: menu, L("截图", "Capture"), #selector(menuCaptureImage), key: "a")
+        addItem(to: menu, L("截图识字", "Capture Text"), #selector(menuCaptureText), key: "o")
+        addItem(to: menu, L("截图记录", "Screenshot History"), #selector(menuShowPanel), key: "s")
         menu.addItem(.separator())
-        addItem(to: menu, "打开截图文件夹", #selector(menuOpenFolder))
+        addItem(to: menu, L("打开截图文件夹", "Open Screenshots Folder"), #selector(menuOpenFolder))
         appendSettings(to: menu)
         return menu
     }
@@ -186,12 +186,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func appendSettings(to menu: NSMenu) {
         if UserDefaults.standard.string(forKey: Self.savedOriginKey) != nil {
-            addItem(to: menu, "面板回到图标下方", #selector(resetPanelPosition))
+            addItem(to: menu, L("面板回到图标下方", "Move Panel Back Under Icon"), #selector(resetPanelPosition))
         }
-        let login = addItem(to: menu, "开机自动启动", #selector(toggleLaunchAtLogin))
+        let login = addItem(to: menu, L("开机自动启动", "Launch at Login"), #selector(toggleLaunchAtLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
+
+        // Bilingual title so it can be found whichever language is showing.
+        let languageItem = NSMenuItem(title: "语言 / Language", action: nil, keyEquivalent: "")
+        let languages = NSMenu()
+        let choices: [(AppLanguage, String)] = [(.system, L("跟随系统", "System Default")),
+                                                (.chinese, "简体中文"), (.english, "English")]
+        for (language, title) in choices {
+            let item = NSMenuItem(title: title, action: #selector(selectLanguage(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = language.rawValue
+            item.state = Language.shared.setting == language ? .on : .off
+            languages.addItem(item)
+        }
+        languageItem.submenu = languages
+        menu.addItem(languageItem)
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "退出 ShotShelf", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: L("退出 ShotShelf", "Quit ShotShelf"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
     }
 
     @discardableResult
@@ -217,6 +232,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func menuCaptureText() { capture(.text) }
     @objc private func menuShowPanel() { showPanel() }
     @objc private func menuOpenFolder() { openFolder() }
+
+    @objc private func selectLanguage(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let language = AppLanguage(rawValue: raw) else { return }
+        Language.shared.set(language)
+    }
 
     @objc private func toggleLaunchAtLogin() {
         if SMAppService.mainApp.status == .enabled {
@@ -244,7 +264,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         if !failed.isEmpty {
-            store.hotKeyWarning = "快捷键 \(failed.joined(separator: "、")) 被其他应用占用，可先用下方按钮"
+            store.busyHotKeys = failed
         }
     }
 
@@ -270,7 +290,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             do {
                 screens = try await ScreenGrabber.grabAll()
             } catch {
-                Toast.shared.show("截图失败", detail: error.localizedDescription)
+                Toast.shared.show(L("截图失败", "Capture failed"), detail: error.localizedDescription)
                 return
             }
             guard !screens.isEmpty,
@@ -287,7 +307,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let url = store.newShotURL()
         guard ImageFile.writePNG(image, scale: scale, to: url) else {
-            Toast.shared.show("截图保存失败", detail: store.folder.path)
+            Toast.shared.show(L("截图保存失败", "Couldn't save the screenshot"), detail: store.folder.path)
             return
         }
         let shot = store.add(url: url, screenScale: Double(scale))
@@ -295,16 +315,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if !recognize {
             Clipboard.copyImage(at: url)
-            Toast.shared.show("已复制截图", image: preview)
+            Toast.shared.show(L("已复制截图", "Screenshot copied"), image: preview)
         } else {
             let text = await store.text(for: shot)
             if text.isEmpty {
-                Toast.shared.show("没有识别到文字", detail: "截图已存到记录里", image: preview)
+                Toast.shared.show(L("没有识别到文字", "No text found"), detail: L("截图已存到记录里", "Saved to history"), image: preview)
             } else {
                 Clipboard.copyText(text)
                 let count = text.filter { !$0.isWhitespace }.count
                 let firstLine = text.split(separator: "\n").first.map(String.init)
-                Toast.shared.show("已复制 \(count) 字", detail: firstLine, image: preview)
+                Toast.shared.show(L("已复制 \(count) 字", "Copied \(count) characters"), detail: firstLine, image: preview)
             }
         }
     }

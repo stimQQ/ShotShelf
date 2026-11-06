@@ -49,8 +49,9 @@ struct PanelView: View {
                     .padding(.horizontal, 12)
                     .padding(.bottom, 10)
             }
-            if let warning = store.hotKeyWarning {
-                noticeCard(warning)
+            if !store.busyHotKeys.isEmpty {
+                noticeCard(L("快捷键 \(store.busyHotKeys.joined(separator: "、")) 被其他应用占用，可先用下方按钮",
+                             "\(store.busyHotKeys.joined(separator: ", ")) is taken by another app. Use the buttons below."))
                     .padding(.horizontal, 12)
                     .padding(.bottom, 10)
             }
@@ -131,18 +132,18 @@ struct PanelView: View {
                 roundIcon("folder")
             }
             .buttonStyle(.plain)
-            .help("打开截图文件夹")
+            .help(L("打开截图文件夹", "Open screenshots folder"))
             Capsule()
                 .fill(Color.ink.opacity(0.2))
                 .frame(width: 36, height: 5)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(WindowDragArea())
-                .help("拖动可以移动面板")
+                .help(L("拖动可以移动面板", "Drag to move"))
             Button(action: actions.showSettings) {
                 roundIcon("gearshape")
             }
             .buttonStyle(.plain)
-            .help("设置")
+            .help(L("设置", "Settings"))
         }
         .frame(height: 28)
         .padding(.horizontal, 10)
@@ -150,36 +151,49 @@ struct PanelView: View {
         .padding(.bottom, 8)
     }
 
+    /// Shows the shortcut keys when they fit (Chinese), drops them when they don't (English).
     private var footer: some View {
+        ViewThatFits(in: .horizontal) {
+            footerRow(showKeys: true)
+            footerRow(showKeys: false)
+        }
+    }
+
+    /// The main button takes the spare width; the second one hugs its label.
+    private func footerRow(showKeys: Bool) -> some View {
         HStack(spacing: 8) {
             Button {
                 actions.capture(.image)
             } label: {
-                pill("截图", icon: "camera.viewfinder", keys: "⌥⇧A", prominent: true)
+                pill(L("截图", "Capture"), icon: "camera.viewfinder", keys: showKeys ? "⌥⇧A" : nil, prominent: true)
             }
             .buttonStyle(.plain)
             Button {
                 actions.capture(.text)
             } label: {
-                pill("识字", icon: "text.viewfinder", keys: "⌥⇧O", prominent: false)
+                pill(L("识字", "OCR"), icon: "text.viewfinder", keys: showKeys ? "⌥⇧O" : nil, prominent: false)
             }
             .buttonStyle(.plain)
+            .fixedSize()
         }
     }
 
-    private func pill(_ title: String, icon: String, keys: String, prominent: Bool) -> some View {
+    private func pill(_ title: String, icon: String, keys: String?, prominent: Bool) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .semibold))
             Text(title)
                 .font(.system(size: 12, weight: .semibold))
-            Text(keys)
-                .font(.system(size: 10, weight: .semibold))
-                .opacity(0.65)
+            if let keys {
+                Text(keys)
+                    .font(.system(size: 10, weight: .semibold))
+                    .opacity(0.65)
+            }
         }
+        .lineLimit(1)
         .foregroundStyle(prominent ? Color.white : Color.ink)
-        .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: prominent ? .infinity : nil)
         .frame(height: 32)
         .background(prominent ? Color.accentColor : Color.bubble,
                     in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -199,16 +213,16 @@ struct PanelView: View {
             HStack(spacing: 8) {
                 Image(systemName: "lock.shield.fill")
                     .foregroundStyle(Color.orange)
-                Text("需要开启录屏权限")
+                Text(L("需要开启录屏权限", "Screen recording permission needed"))
                     .font(.system(size: 13, weight: .bold))
             }
-            Text("系统设置 › 隐私与安全性 › 录屏与系统录音，打开 ShotShelf 后点「重新启动」。")
+            Text(L("系统设置 › 隐私与安全性 › 录屏与系统录音，打开 ShotShelf 后点「重新启动」。", "System Settings › Privacy & Security › Screen & System Audio Recording: turn on ShotShelf, then click Relaunch."))
                 .font(.system(size: 12))
                 .foregroundStyle(Color.inkSoft)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
-                smallButton("打开系统设置", prominent: true, action: actions.openPermissionSettings)
-                smallButton("重新启动", prominent: false, action: actions.relaunch)
+                smallButton(L("打开系统设置", "Open Settings"), prominent: true, action: actions.openPermissionSettings)
+                smallButton(L("重新启动", "Relaunch"), prominent: false, action: actions.relaunch)
             }
         }
         .padding(16)
@@ -260,16 +274,16 @@ struct PanelView: View {
                     .frame(width: 52, height: 52)
                     .background(Color.bubble, in: Circle())
             }
-            Text("还没有截图")
+            Text(L("还没有截图", "No screenshots yet"))
                 .font(.system(size: 15, weight: .bold))
             VStack(alignment: .leading, spacing: 12) {
-                hintLine("⌥⇧A", "截图，可以打码、识字")
-                hintLine("⌥⇧O", "截图后直接识字并复制")
-                hintLine("⌥⇧S", "随时打开这个截图记录")
+                hintLine("⌥⇧A", L("截图，可以打码、识字", "Capture, redact, OCR"))
+                hintLine("⌥⇧O", L("截图后直接识字并复制", "Capture and copy text"))
+                hintLine("⌥⇧S", L("随时打开这个截图记录", "Open this history"))
             }
             .padding(14)
             .background(Color.bubble, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            Text("文件保存在「图片 › ShotShelf」")
+            Text(L("文件保存在「图片 › ShotShelf」", "Saved in Pictures › ShotShelf"))
                 .font(.system(size: 12))
                 .foregroundStyle(Color.inkSoft)
         }
@@ -290,12 +304,12 @@ struct PanelView: View {
 
     private static func dayTitle(_ day: Date) -> String {
         let calendar = Calendar.current
-        if calendar.isDateInToday(day) { return "今天" }
-        if calendar.isDateInYesterday(day) { return "昨天" }
+        if calendar.isDateInToday(day) { return L("今天", "Today") }
+        if calendar.isDateInYesterday(day) { return L("昨天", "Yesterday") }
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.locale = Locale(identifier: L("zh_CN", "en_US"))
         formatter.dateFormat = calendar.isDate(day, equalTo: Date(), toGranularity: .year)
-            ? "M月d日 EEEE" : "yyyy年M月d日"
+            ? L("M月d日 EEEE", "EEEE, MMM d") : L("yyyy年M月d日", "MMM d, yyyy")
         return formatter.string(from: day)
     }
 }
@@ -375,7 +389,7 @@ struct ShotItem: View {
         }
         .overlay {
             FileDragSource(url: url, image: thumbnail ?? Thumbnails.shared.cached(url),
-                           tooltip: "点击复制图片，也可以直接拖到微信、桌面等地方",
+                           tooltip: L("点击复制图片，也可以直接拖到微信、桌面等地方", "Click to copy, or drag into any app"),
                            menuItems: menuActions) { copyImage() }
         }
     }
@@ -383,11 +397,11 @@ struct ShotItem: View {
     /// Right-click menu for the image (the AppKit drag view sits on top of SwiftUI's .contextMenu).
     private var menuActions: [(String, () -> Void)] {
         [
-            ("复制图片", { copyImage() }),
-            ("复制文字", { copyText() }),
-            ("打开", { NSWorkspace.shared.open(url) }),
-            ("在 Finder 中显示", { NSWorkspace.shared.activateFileViewerSelecting([url]) }),
-            ("移到废纸篓", { store.delete(shot) }),
+            (L("复制图片", "Copy Image"), { copyImage() }),
+            (L("复制文字", "Copy Text"), { copyText() }),
+            (L("打开", "Open"), { NSWorkspace.shared.open(url) }),
+            (L("在 Finder 中显示", "Show in Finder"), { NSWorkspace.shared.activateFileViewerSelecting([url]) }),
+            (L("移到废纸篓", "Move to Trash"), { store.delete(shot) }),
         ]
     }
 
@@ -398,15 +412,15 @@ struct ShotItem: View {
                 .monospacedDigit()
                 .foregroundStyle(Color.inkSoft)
             if store.recognizing.contains(shot.id) {
-                Text("· 识别中")
+                Text(L("· 识别中", "· Recognizing"))
                     .font(.system(size: 12))
                     .foregroundStyle(Color.inkSoft)
             }
             Spacer(minLength: 0)
-            action("doc.on.doc", "复制图片") { copyImage() }
-            action("text.viewfinder", shot.text == nil ? "识别并复制文字" : "复制文字") { copyText() }
-            action("folder", "在 Finder 中显示") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-            action("trash", "移到废纸篓") { store.delete(shot) }
+            action("doc.on.doc", L("复制图片", "Copy image")) { copyImage() }
+            action("text.viewfinder", shot.text == nil ? L("识别并复制文字", "Recognize and copy text") : L("复制文字", "Copy text")) { copyText() }
+            action("folder", L("在 Finder 中显示", "Show in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+            action("trash", L("移到废纸篓", "Move to Trash")) { store.delete(shot) }
         }
         .padding(.leading, 4)
     }
@@ -431,17 +445,17 @@ struct ShotItem: View {
     }
 
     private func copyImage() {
-        if Clipboard.copyImage(at: url) { showFlash("已复制图片") }
+        if Clipboard.copyImage(at: url) { showFlash(L("已复制图片", "Image copied")) }
     }
 
     private func copyText() {
         Task {
             let text = await store.text(for: shot)
             if text.isEmpty {
-                showFlash("没有识别到文字")
+                showFlash(L("没有识别到文字", "No text found"))
             } else {
                 Clipboard.copyText(text)
-                showFlash("已复制文字")
+                showFlash(L("已复制文字", "Text copied"))
             }
         }
     }

@@ -11,6 +11,10 @@ if let i = args.firstIndex(of: "--ocr"), i + 1 < args.count {
 
 let app = NSApplication.shared
 
+// Dev previews: `--en` / `--zh` show that language without saving the choice.
+if args.contains("--en") { Language.shared.set(.english, persist: false) }
+if args.contains("--zh") { Language.shared.set(.chinese, persist: false) }
+
 if let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count {
     let output = URL(fileURLWithPath: args[i + 1])
     let dark = args.contains("--dark")

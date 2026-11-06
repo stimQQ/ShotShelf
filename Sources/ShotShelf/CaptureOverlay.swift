@@ -368,10 +368,10 @@ final class CaptureView: NSView {
                 }
             }
             var label = "\(Int((sel.width * frozen.scale).rounded())) × \(Int((sel.height * frozen.scale).rounded()))"
-            if model.mosaicOn { label += "   在选区里拖动，框住要打码的地方" }
+            if model.mosaicOn { label += L("   在选区里拖动，框住要打码的地方", "   Drag inside the selection to cover areas") }
             drawLabel(label, near: sel)
         } else if recognizeOnSelect {
-            drawLabel("框选要识别文字的区域，Esc 取消",
+            drawLabel(L("框选要识别文字的区域，Esc 取消", "Select the text to recognize · Esc to cancel"),
                       near: NSRect(x: bounds.midX - 120, y: bounds.maxY - 90, width: 0, height: 0))
         }
     }
@@ -519,19 +519,19 @@ struct CaptureToolbar: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            tool("打码", icon: "checkerboard.rectangle", active: model.mosaicOn,
-                 help: "打码：在选区里拖动，框住要遮挡的地方", action: onMosaic)
-            tool("识字", icon: "text.viewfinder", active: false,
-                 help: "识别选区里的文字并复制", action: onRecognize)
-            iconButton("arrow.uturn.backward", help: "撤销打码 ⌘Z", action: onUndo)
+            tool(L("打码", "Mosaic"), icon: "checkerboard.rectangle", active: model.mosaicOn,
+                 help: L("打码：在选区里拖动，框住要遮挡的地方", "Mosaic: drag inside the selection over what to hide"), action: onMosaic)
+            tool(L("识字", "OCR"), icon: "text.viewfinder", active: false,
+                 help: L("识别选区里的文字并复制", "Recognize the text and copy it"), action: onRecognize)
+            iconButton("arrow.uturn.backward", help: L("撤销打码 ⌘Z", "Undo mosaic ⌘Z"), action: onUndo)
                 .disabled(!model.canUndo)
                 .opacity(model.canUndo ? 1 : 0.35)
-            iconButton("xmark", help: "取消 Esc", action: onCancel)
+            iconButton("xmark", help: L("取消 Esc", "Cancel (Esc)"), action: onCancel)
             Button(action: onDone) {
                 HStack(spacing: 5) {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .bold))
-                    Text("完成")
+                    Text(L("完成", "Done"))
                         .font(.system(size: 13, weight: .semibold))
                 }
                 .foregroundStyle(.white)
@@ -541,7 +541,7 @@ struct CaptureToolbar: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help("复制图片（回车，或双击选区）")
+            .help(L("复制图片（回车，或双击选区）", "Copy image (Return, or double-click the selection)"))
             .padding(.leading, 4)
         }
         .padding(4)

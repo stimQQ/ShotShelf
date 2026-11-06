@@ -20,7 +20,7 @@ struct Shot: Identifiable, Codable, Hashable {
 final class ShotStore {
     private(set) var shots: [Shot] = [] // newest first
     var permissionGranted = true
-    var hotKeyWarning: String?
+    var busyHotKeys: [String] = [] // hot keys another app already owns, e.g. "⌥⇧A"
 
     let folder: URL
     private let indexURL: URL
@@ -50,7 +50,7 @@ final class ShotStore {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        let base = "截图 \(formatter.string(from: Date()))"
+        let base = "\(L("截图", "Screenshot")) \(formatter.string(from: Date()))"
         var url = folder.appendingPathComponent("\(base).png")
         var n = 2
         while FileManager.default.fileExists(atPath: url.path) {
