@@ -45,7 +45,7 @@ enum DevSnapshot {
     }
 
     /// Renders the capture screen offscreen over `background` (a full-screen PNG at 2x):
-    /// a selection with one mosaic box and the toolbar. Also writes the cropped output next to it.
+    /// a selection with a mosaic, a box, a circle and a pen line, plus the toolbar. Also writes the cropped output next to it.
     static func overlay(output: URL, background: URL) {
         guard let source = CGImageSourceCreateWithURL(background as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return }
@@ -54,7 +54,16 @@ enum DevSnapshot {
         let view = CaptureView(frozen: frozen, windowFrames: [], recognizeOnSelect: false)
         let selection = NSRect(x: size.width * 0.3, y: size.height * 0.35, width: size.width * 0.4, height: size.height * 0.4)
         let mosaic = NSRect(x: selection.minX + 20, y: selection.maxY - 90, width: selection.width * 0.5, height: 60)
-        view.debugShow(selection: selection, mosaics: [mosaic], mosaicOn: true)
+        let box = NSRect(x: selection.minX + 30, y: selection.minY + 40, width: selection.width * 0.35, height: selection.height * 0.3)
+        let circle = NSRect(x: selection.midX + 20, y: selection.minY + 50, width: selection.width * 0.3, height: selection.height * 0.3)
+        let stroke = (0...40).map { i -> NSPoint in
+            let t = CGFloat(i) / 40
+            return NSPoint(x: selection.minX + 40 + t * selection.width * 0.8,
+                           y: selection.midY + sin(t * .pi * 3) * 30)
+        }
+        view.debugShow(selection: selection,
+                       marks: [.mosaic(mosaic), .rectangle(box), .ellipse(circle), .pen(stroke)],
+                       tool: .rectangle)
 
         let window = NSWindow(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.contentView = view

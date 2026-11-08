@@ -12,6 +12,7 @@ A tiny macOS menu bar screenshot tool. Every capture goes straight to the clipbo
 ## Features
 
 - **Never lose a screenshot**: every capture is copied to the clipboard and saved to the history panel, grouped by day like a chat
+- **Mark it up**: draw boxes, circles and freehand lines on the capture before you copy it
 - **Hide details as you capture**: select an area, click Mosaic and drag over anything you want to cover
 - **Copy text from the screen**: click OCR to recognize the text in the selection and copy it. Mixed Chinese and English text works, and everything stays on your Mac
 - **Drag to share**: drag any screenshot from the history into a chat, the desktop or any other app
@@ -50,7 +51,7 @@ The first time you capture, follow the prompt in the panel: open System Settings
 
 | Action | Result |
 |---|---|
-| `⌥⇧A` | Capture: select an area, then use the toolbar to add mosaic or copy text. Click Done to copy the image |
+| `⌥⇧A` | Capture: select an area, then use the toolbar to draw boxes, circles or freehand lines, add mosaic or copy text. Click Done to copy the image |
 | `⌥⇧O` | Capture Text: select an area and its text is recognized and copied right away, without the toolbar |
 | `⌥⇧S` | Open or close the screenshot history |
 | Click the menu bar icon | Open the history. Click an image to copy it, or drag it out to share |
@@ -60,7 +61,9 @@ On the capture screen (the display freezes when you press the shortcut):
 
 - Drag to select an area. Click without dragging to select the whole window under the pointer
 - After selecting, drag the selection to move it, or drag the eight handles to resize it
-- **Mosaic**: turn it on and drag inside the selection to cover areas. `⌘Z` undoes the last mosaic
+- **Box, Circle and Pen**: pick a tool and drag inside the selection to draw in red. Hold Shift for a square or a perfect circle. Click the active tool again to go back to moving the selection
+- **Mosaic**: turn it on and drag inside the selection to cover areas
+- `⌘Z` undoes the last box, circle, line or mosaic
 - **OCR**: recognize the text in the selection and copy it
 - **Done**: copy the image. You can also press Return, press `⌘C` or double-click the selection
 - `Esc` cancels. Right-click to clear the selection and start over

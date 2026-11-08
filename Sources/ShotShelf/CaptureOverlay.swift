@@ -84,10 +84,79 @@ final class OverlayWindow: NSPanel {
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 }
 
+enum MarkupTool: Equatable {
+    case rectangle, ellipse, pen, mosaic
+}
+
 @Observable
 final class CaptureToolbarModel {
-    var mosaicOn = false
+    var tool: MarkupTool?
     var canUndo = false
+}
+
+/// Something drawn on the selection. Positions are in capture view points.
+enum Markup {
+    case mosaic(NSRect)
+    case rectangle(NSRect)
+    case ellipse(NSRect)
+    case pen([NSPoint])
+
+    static let color = CGColor(srgbRed: 1, green: 0.23, blue: 0.19, alpha: 1)
+    static let lineWidth: CGFloat = 3
+
+    var mosaicRect: NSRect? {
+        if case .mosaic(let rect) = self { return rect }
+        return nil
+    }
+
+    /// Big enough to keep (a stray click draws nothing).
+    var isMeaningful: Bool {
+        switch self {
+        case .mosaic(let rect), .rectangle(let rect), .ellipse(let rect):
+            return rect.width >= 3 && rect.height >= 3
+        case .pen(let points):
+            return points.count >= 2
+        }
+    }
+
+    /// Strokes shapes and pen lines; mosaics are drawn separately, underneath.
+    func stroke(in context: CGContext) {
+        context.saveGState()
+        context.setStrokeColor(Self.color)
+        context.setLineWidth(Self.lineWidth)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        switch self {
+        case .mosaic:
+            context.restoreGState()
+            return
+        case .rectangle(let rect):
+            context.addRect(rect)
+        case .ellipse(let rect):
+            context.addEllipse(in: rect)
+        case .pen(let points):
+            context.addPath(Self.smoothPath(points))
+        }
+        context.strokePath()
+        context.restoreGState()
+    }
+
+    /// Quadratic curves through the midpoints, so a freehand line doesn't look jagged.
+    private static func smoothPath(_ points: [NSPoint]) -> CGPath {
+        let path = CGMutablePath()
+        guard let first = points.first else { return path }
+        path.move(to: first)
+        guard points.count > 2 else {
+            points.dropFirst().forEach { path.addLine(to: $0) }
+            return path
+        }
+        for i in 1..<(points.count - 1) {
+            let mid = NSPoint(x: (points[i].x + points[i + 1].x) / 2, y: (points[i].y + points[i + 1].y) / 2)
+            path.addQuadCurve(to: mid, control: points[i])
+        }
+        path.addLine(to: points[points.count - 1])
+        return path
+    }
 }
 
 final class CaptureView: NSView {
@@ -105,14 +174,15 @@ final class CaptureView: NSView {
         case selecting(from: NSPoint)
         case moving(from: NSPoint, original: NSRect)
         case resizing(Handle, original: NSRect)
-        case mosaic(from: NSPoint)
+        case marking(MarkupTool, from: NSPoint)
     }
 
     private var drag = Drag.none
     private var selection: NSRect?
     private var hoverRect: NSRect?
-    private var mosaics: [NSRect] = []
-    private var pendingMosaic: NSRect?
+    private var marks: [Markup] = []
+    private var pendingShape: Markup?
+    private var penPoints: [NSPoint] = []
     private lazy var pixelated: CGImage? = Self.pixelate(frozen.image, block: 12 * frozen.scale)
 
     init(frozen: FrozenScreen, windowFrames: [NSRect], recognizeOnSelect: Bool) {
@@ -126,7 +196,7 @@ final class CaptureView: NSView {
 
         let bar = CaptureToolbar(
             model: model,
-            onMosaic: { [weak self] in self?.toggleMosaic() },
+            onTool: { [weak self] tool in self?.select(tool) },
             onRecognize: { [weak self] in self?.finish(recognize: true) },
             onUndo: { [weak self] in self?.undo() },
             onCancel: { [weak self] in self?.onFinish?(nil) },
@@ -149,9 +219,10 @@ final class CaptureView: NSView {
     func reset() {
         selection = nil
         hoverRect = nil
-        mosaics.removeAll()
-        pendingMosaic = nil
-        model.mosaicOn = false
+        marks.removeAll()
+        pendingShape = nil
+        penPoints.removeAll()
+        model.tool = nil
         model.canUndo = false
         toolbar.isHidden = true
         drag = .none
@@ -160,16 +231,23 @@ final class CaptureView: NSView {
 
     // MARK: - Actions
 
-    private func toggleMosaic() {
-        model.mosaicOn.toggle()
+    /// Picks a markup tool; picking the active one again turns it off.
+    private func select(_ tool: MarkupTool) {
+        model.tool = model.tool == tool ? nil : tool
         needsDisplay = true
     }
 
     private func undo() {
-        guard !mosaics.isEmpty else { return }
-        mosaics.removeLast()
-        model.canUndo = !mosaics.isEmpty
+        guard !marks.isEmpty else { return }
+        marks.removeLast()
+        model.canUndo = !marks.isEmpty
         needsDisplay = true
+    }
+
+    /// The mark being dragged out right now, if any.
+    private var currentMark: Markup? {
+        if case .marking(.pen, _) = drag { return .pen(penPoints) }
+        return pendingShape
     }
 
     private func finish(recognize: Bool) {
@@ -203,16 +281,18 @@ final class CaptureView: NSView {
             onBegin?()
             return
         }
-        if event.clickCount == 2, sel.contains(p), !model.mosaicOn {
+        if event.clickCount == 2, sel.contains(p), model.tool == nil {
             finish(recognize: false)
-        } else if model.mosaicOn, sel.contains(p) {
-            drag = .mosaic(from: p)
+        } else if let tool = model.tool, sel.contains(p) {
+            drag = .marking(tool, from: p)
+            pendingShape = nil
+            penPoints = [p]
         } else if let handle = Handle.hit(p, in: sel) {
             drag = .resizing(handle, original: sel)
         } else if sel.contains(p) {
             drag = .moving(from: p, original: sel)
-        } else if mosaics.isEmpty {
-            // Dragging outside starts over, unless that would throw away mosaic work.
+        } else if marks.isEmpty {
+            // Dragging outside starts over, unless that would throw away markup.
             reset()
             drag = .selecting(from: p)
         }
@@ -237,8 +317,20 @@ final class CaptureView: NSView {
         case .resizing(let handle, let original):
             selection = handle.resize(original, to: p)
             toolbar.isHidden = true
-        case .mosaic(let from):
-            if let sel = selection { pendingMosaic = Self.rect(from, p).intersection(sel) }
+        case .marking(let tool, let from):
+            guard let sel = selection else { break }
+            let q = NSPoint(x: min(max(p.x, sel.minX), sel.maxX), y: min(max(p.y, sel.minY), sel.maxY))
+            let square = event.modifierFlags.contains(.shift)
+            switch tool {
+            case .pen:
+                penPoints.append(q)
+            case .rectangle:
+                pendingShape = .rectangle(Self.shapeRect(from, q, square: square).intersection(sel))
+            case .ellipse:
+                pendingShape = .ellipse(Self.shapeRect(from, q, square: square).intersection(sel))
+            case .mosaic:
+                pendingShape = .mosaic(Self.rect(from, q).intersection(sel))
+            }
         }
         needsDisplay = true
     }
@@ -254,12 +346,13 @@ final class CaptureView: NSView {
             selectionDone()
         case .moving, .resizing:
             selectionDone()
-        case .mosaic:
-            if let rect = pendingMosaic, rect.width >= 3, rect.height >= 3 {
-                mosaics.append(rect)
+        case .marking:
+            if let mark = currentMark, mark.isMeaningful {
+                marks.append(mark)
                 model.canUndo = true
             }
-            pendingMosaic = nil
+            pendingShape = nil
+            penPoints.removeAll()
         }
         drag = .none
         needsDisplay = true
@@ -313,14 +406,14 @@ final class CaptureView: NSView {
         if !toolbar.isHidden && toolbar.frame.contains(p) {
             cursor = .arrow
         } else if let sel = selection {
-            if model.mosaicOn && sel.contains(p) {
+            if model.tool != nil && sel.contains(p) {
                 cursor = .crosshair
             } else if let handle = Handle.hit(p, in: sel) {
                 cursor = handle.cursor
             } else if sel.contains(p) {
                 cursor = .openHand
             } else {
-                cursor = mosaics.isEmpty ? .crosshair : .arrow
+                cursor = marks.isEmpty ? .crosshair : .arrow
             }
         } else {
             cursor = .crosshair
@@ -334,12 +427,16 @@ final class CaptureView: NSView {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         context.draw(frozen.image, in: bounds)
 
-        let masked = mosaics + (pendingMosaic.map { [$0] } ?? [])
+        let visible = marks + (currentMark.map { [$0] } ?? [])
+        let masked = visible.compactMap(\.mosaicRect)
         if !masked.isEmpty, let pixelated {
             context.saveGState()
             context.clip(to: masked)
             context.draw(pixelated, in: bounds)
             context.restoreGState()
+        }
+        for mark in visible {
+            mark.stroke(in: context)
         }
 
         let hole = selection ?? hoverRect
@@ -360,7 +457,7 @@ final class CaptureView: NSView {
             context.stroke(hole.insetBy(dx: -width / 2, dy: -width / 2))
         }
         if let sel = selection {
-            if !model.mosaicOn {
+            if model.tool == nil {
                 context.setFillColor(accent.cgColor)
                 for handle in Handle.all {
                     let c = handle.point(in: sel)
@@ -368,11 +465,20 @@ final class CaptureView: NSView {
                 }
             }
             var label = "\(Int((sel.width * frozen.scale).rounded())) × \(Int((sel.height * frozen.scale).rounded()))"
-            if model.mosaicOn { label += L("   在选区里拖动，框住要打码的地方", "   Drag inside the selection to cover areas") }
+            if let tool = model.tool { label += "   " + Self.hint(for: tool) }
             drawLabel(label, near: sel)
         } else if recognizeOnSelect {
             drawLabel(L("框选要识别文字的区域，Esc 取消", "Select the text to recognize · Esc to cancel"),
                       near: NSRect(x: bounds.midX - 120, y: bounds.maxY - 90, width: 0, height: 0))
+        }
+    }
+
+    private static func hint(for tool: MarkupTool) -> String {
+        switch tool {
+        case .rectangle: L("在选区里拖动画方框，按住 Shift 画正方形", "Drag to draw a box · Shift for a square")
+        case .ellipse: L("在选区里拖动画圆圈，按住 Shift 画正圆", "Drag to draw a circle · Shift for a perfect circle")
+        case .pen: L("在选区里按住拖动，自由画", "Drag to draw freehand")
+        case .mosaic: L("在选区里拖动，框住要打码的地方", "Drag inside the selection to cover areas")
         }
     }
 
@@ -412,7 +518,7 @@ final class CaptureView: NSView {
 
     // MARK: - Output
 
-    /// The selected pixels with mosaics burned in.
+    /// The selected pixels with mosaics burned in and markup drawn on top.
     private func renderSelection() -> CGImage? {
         guard let sel = selection else { return nil }
         let s = frozen.scale
@@ -421,10 +527,11 @@ final class CaptureView: NSView {
         // CGImage cropping counts from the top.
         let crop = CGRect(x: px.minX, y: imageHeight - px.maxY, width: px.width, height: px.height)
         guard let base = frozen.image.cropping(to: crop) else { return nil }
-        if mosaics.isEmpty { return base }
+        if marks.isEmpty { return base }
 
         // Never fall back to the unmasked image: no output beats leaking what was covered.
-        guard let pixelated else { return nil }
+        let mosaicRects = marks.compactMap(\.mosaicRect)
+        if !mosaicRects.isEmpty && pixelated == nil { return nil }
         let spaces = [base.colorSpace, CGColorSpace(name: CGColorSpace.sRGB)].compactMap { $0 }
         let bitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
         guard let context = spaces.lazy.compactMap({
@@ -433,10 +540,20 @@ final class CaptureView: NSView {
         }).first else { return nil }
         let whole = CGRect(x: -px.minX, y: -px.minY, width: CGFloat(frozen.image.width), height: imageHeight)
         context.draw(frozen.image, in: whole)
-        context.clip(to: mosaics.map {
-            CGRect(x: $0.minX * s - px.minX, y: $0.minY * s - px.minY, width: $0.width * s, height: $0.height * s)
-        })
-        context.draw(pixelated, in: whole)
+        if !mosaicRects.isEmpty, let pixelated {
+            context.saveGState()
+            context.clip(to: mosaicRects.map {
+                CGRect(x: $0.minX * s - px.minX, y: $0.minY * s - px.minY, width: $0.width * s, height: $0.height * s)
+            })
+            context.draw(pixelated, in: whole)
+            context.restoreGState()
+        }
+        // Markup is stored in view points: map points to the cropped pixels.
+        context.translateBy(x: -px.minX, y: -px.minY)
+        context.scaleBy(x: s, y: s)
+        for mark in marks {
+            mark.stroke(in: context)
+        }
         return context.makeImage()
     }
 
@@ -454,14 +571,22 @@ final class CaptureView: NSView {
         NSRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
     }
 
+    /// The box from `a` toward `b`; with `square`, both sides take the longer length.
+    private static func shapeRect(_ a: NSPoint, _ b: NSPoint, square: Bool) -> NSRect {
+        guard square else { return rect(a, b) }
+        let side = max(abs(b.x - a.x), abs(b.y - a.y))
+        let end = NSPoint(x: a.x + (b.x >= a.x ? side : -side), y: a.y + (b.y >= a.y ? side : -side))
+        return rect(a, end)
+    }
+
     // MARK: - Dev
 
     /// Preset state for the offscreen snapshot.
-    func debugShow(selection: NSRect, mosaics: [NSRect], mosaicOn: Bool) {
+    func debugShow(selection: NSRect, marks: [Markup], tool: MarkupTool?) {
         self.selection = selection
-        self.mosaics = mosaics
-        model.mosaicOn = mosaicOn
-        model.canUndo = !mosaics.isEmpty
+        self.marks = marks
+        model.tool = tool
+        model.canUndo = !marks.isEmpty
         layoutToolbar()
         needsDisplay = true
     }
@@ -511,7 +636,7 @@ private final class FirstMouseHostingView<Content: View>: NSHostingView<Content>
 /// Dark, high-contrast bar under the selection.
 struct CaptureToolbar: View {
     let model: CaptureToolbarModel
-    var onMosaic: () -> Void
+    var onTool: (MarkupTool) -> Void
     var onRecognize: () -> Void
     var onUndo: () -> Void
     var onCancel: () -> Void
@@ -519,11 +644,18 @@ struct CaptureToolbar: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            tool(L("打码", "Mosaic"), icon: "checkerboard.rectangle", active: model.mosaicOn,
-                 help: L("打码：在选区里拖动，框住要遮挡的地方", "Mosaic: drag inside the selection over what to hide"), action: onMosaic)
+            toolIcon(.rectangle, icon: "rectangle",
+                     help: L("方框：拖动画框，按住 Shift 画正方形", "Box: drag to draw, hold Shift for a square"))
+            toolIcon(.ellipse, icon: "circle",
+                     help: L("圆圈：拖动画圈，按住 Shift 画正圆", "Circle: drag to draw, hold Shift for a perfect circle"))
+            toolIcon(.pen, icon: "pencil",
+                     help: L("画笔：按住拖动，自由画", "Pen: drag to draw freehand"))
+            tool(L("打码", "Mosaic"), icon: "checkerboard.rectangle", active: model.tool == .mosaic,
+                 help: L("打码：在选区里拖动，框住要遮挡的地方", "Mosaic: drag inside the selection over what to hide"),
+                 action: { onTool(.mosaic) })
             tool(L("识字", "OCR"), icon: "text.viewfinder", active: false,
                  help: L("识别选区里的文字并复制", "Recognize the text and copy it"), action: onRecognize)
-            iconButton("arrow.uturn.backward", help: L("撤销打码 ⌘Z", "Undo mosaic ⌘Z"), action: onUndo)
+            iconButton("arrow.uturn.backward", help: L("撤销 ⌘Z", "Undo ⌘Z"), action: onUndo)
                 .disabled(!model.canUndo)
                 .opacity(model.canUndo ? 1 : 0.35)
             iconButton("xmark", help: L("取消 Esc", "Cancel (Esc)"), action: onCancel)
@@ -564,6 +696,22 @@ struct CaptureToolbar: View {
             .background(active ? Color.white : Color.clear,
                         in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    /// An icon-only markup tool that stays highlighted while it's active.
+    private func toolIcon(_ markup: MarkupTool, icon: String, help: String) -> some View {
+        let active = model.tool == markup
+        return Button(action: { onTool(markup) }) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(active ? Color.black : Color.white)
+                .frame(width: 34, height: 32)
+                .background(active ? Color.white : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(help)
