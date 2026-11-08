@@ -24,14 +24,14 @@ enum DevSnapshot {
         print("Wrote \(output.path)")
     }
 
-    /// Shows the real glass panel (top-right of the main screen) plus a toast for `seconds`.
+    /// Shows the real glass panel (top-right of the primary screen) plus a toast for `seconds`.
     static func preview(seconds: Double, images: [URL], dark: Bool, toast: Bool = true) {
         NSApplication.shared.setActivationPolicy(.accessory)
         let store = makeStore(images: images)
         let host = NSHostingView(rootView: PanelView(store: store, actions: .noop))
         let panel = GlassPanel(content: host, size: PanelView.size)
         panel.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        if let frame = NSScreen.main?.visibleFrame {
+        if let frame = NSScreen.screens.first?.visibleFrame {
             panel.setFrameOrigin(NSPoint(x: frame.maxX - PanelView.size.width - 12,
                                          y: frame.maxY - PanelView.size.height - 6))
         }

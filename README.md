@@ -1,99 +1,95 @@
 # ShotShelf
 
-macOS 菜单栏截图小工具：截图自动进剪贴板，留在一个毛玻璃小面板里随时找回；截图时可以打码、识字（离线 OCR）。免费开源。
+English | [简体中文](README.zh-CN.md)
 
-A tiny macOS menu bar screenshot tool: captures go straight to the clipboard and stay in a frosted-glass history panel. Mosaic redaction and offline OCR (Apple Vision) right in the capture toolbar. English and Chinese UI. Free and open source (MIT).
+A tiny macOS menu bar screenshot tool. Every capture goes straight to the clipboard and stays in a frosted-glass history panel, so you can always find it again. Add mosaic to hide details or copy text with offline OCR right while you capture. Free and open source.
 
 <p>
-  <img src="docs/panel-light.png" width="300" alt="浅色模式的截图记录面板">
-  <img src="docs/panel-dark.png" width="300" alt="深色模式的截图记录面板">
+  <img src="docs/panel-light.png" width="300" alt="The screenshot history panel in light mode">
+  <img src="docs/panel-dark.png" width="300" alt="The screenshot history panel in dark mode">
 </p>
 
-## 功能
+## Features
 
-- **截图不再找不到**：截完自动复制到剪贴板，同时存进记录面板，像聊天记录一样按天排列
-- **截图时打码**：框选后点「打码」，拖出要遮住的地方就变成马赛克
-- **截图时识字**：点「识字」把选区里的文字识别出来并复制，中英文混排也能认，全程离线
-- **拖出去就能发**：记录里的图片可以直接拖到微信、桌面等地方
-- **几乎没有存在感**：只在菜单栏有一个图标，不占程序坞；内存约 30 MB
-- **中英文界面**：默认跟随系统语言，也可以在设置里随时切换，立即生效
-- 全局快捷键不需要辅助功能权限；带刘海的 MacBook 上图标被挡住时，用快捷键也能打开面板
+- **Never lose a screenshot**: every capture is copied to the clipboard and saved to the history panel, grouped by day like a chat
+- **Hide details as you capture**: select an area, click Mosaic and drag over anything you want to cover
+- **Copy text from the screen**: click OCR to recognize the text in the selection and copy it. Mixed Chinese and English text works, and everything stays on your Mac
+- **Drag to share**: drag any screenshot from the history into a chat, the desktop or any other app
+- **Stays out of your way**: just a menu bar icon, no Dock icon, and about 30 MB of memory
+- **English and Chinese UI**: follows your system language, and you can switch in Settings at any time without restarting
+- Global shortcuts don't need Accessibility permission. On MacBooks with a notch, use the shortcut to open the panel if the notch hides the menu bar icon
 
-## 下载安装
+## Download
 
-需要 macOS 14 或更新版本，Apple 芯片和 Intel 芯片的 Mac 都能用。
+Requires macOS 14 or later. Works on both Apple silicon and Intel Macs.
 
-1. 到 [Releases](https://github.com/stimQQ/ShotShelf/releases/latest) 下载最新的 `ShotShelf-x.y.z.dmg`
-2. 打开 dmg，把 ShotShelf 拖进「应用程序」
-3. 从「应用程序」里打开 ShotShelf，菜单栏右上角会出现一个取景框图标
+1. Download the latest `ShotShelf-x.y.z.dmg` from [Releases](https://github.com/stimQQ/ShotShelf/releases/latest)
+2. Open the dmg and drag ShotShelf into Applications
+3. Open ShotShelf from Applications. A viewfinder icon appears in the menu bar
 
-安装包已用 Developer ID 签名并经过苹果公证，双击就能打开。
+The app is signed with a Developer ID and notarized by Apple, so it opens with a double-click.
 
-## 从源码构建
+## Build from source
 
-需要 Xcode 或 Command Line Tools（Swift 5.9+）：
+Requires Xcode or the Command Line Tools (Swift 5.9 or later):
 
 ```bash
 git clone https://github.com/stimQQ/ShotShelf.git
 cd ShotShelf
-./build.sh                      # 产物在 build/ShotShelf.app
-open build/ShotShelf.app        # 想常驻可以拖进「应用程序」文件夹
+./build.sh                      # builds build/ShotShelf.app
+open build/ShotShelf.app        # drag it into Applications to keep it
 ```
 
-`build.sh` 会优先用本机钥匙串里的 Apple Development 证书签名，这样重新构建后录屏权限还在；没有证书时退回 ad-hoc 签名，
-每次重新构建后都要在系统设置里把 ShotShelf 的开关关掉再打开一次。
+`build.sh` signs with an Apple Development certificate from your keychain when it finds one, so screen recording permission survives rebuilds. Without a certificate it falls back to ad-hoc signing, and you need to turn ShotShelf off and on again in System Settings after every rebuild.
 
-## 第一次使用
+## First run
 
-第一次截图时，按面板上的提示在「系统设置 › 隐私与安全性 › 录屏与系统录音」里打开 ShotShelf，然后点面板里的「重新启动」。
-macOS 15 可能还会弹窗询问是否允许 ShotShelf 直接访问屏幕，选允许即可。
+The first time you capture, follow the prompt in the panel: open System Settings › Privacy & Security › Screen & System Audio Recording, turn on ShotShelf, then click Relaunch in the panel. macOS 15 may also ask whether ShotShelf can access your screen directly. Choose Allow.
 
-## 用法
+## Usage
 
-| 操作 | 结果 |
+| Action | Result |
 |---|---|
-| `⌥⇧A` | 截图：框选后出现工具条，可以打码、识字，点「完成」复制图片 |
-| `⌥⇧O` | 截图识字：框选后直接识别文字并复制，不出工具条 |
-| `⌥⇧S` | 打开 / 关闭截图记录 |
-| 点菜单栏图标 | 打开截图记录：点图片复制，拖出去发送 |
-| 右键菜单栏图标 | 快捷菜单 |
+| `⌥⇧A` | Capture: select an area, then use the toolbar to add mosaic or copy text. Click Done to copy the image |
+| `⌥⇧O` | Capture Text: select an area and its text is recognized and copied right away, without the toolbar |
+| `⌥⇧S` | Open or close the screenshot history |
+| Click the menu bar icon | Open the history. Click an image to copy it, or drag it out to share |
+| Right-click the menu bar icon | Quick menu |
 
-截图界面（按下快捷键时屏幕会定格）：
+On the capture screen (the display freezes when you press the shortcut):
 
-- 拖动框选区域；不拖直接单击，会选中鼠标下面的整个窗口
-- 选好后可以拖动选区、拖八个圆点调整大小
-- **打码**：打开后在选区里拖动，框住的地方变成马赛克，`⌘Z` 撤销
-- **识字**：识别选区里的文字并复制
-- **完成**：复制图片，也可以按回车、`⌘C` 或双击选区
-- `Esc` 取消；右键清掉当前选区重新选
+- Drag to select an area. Click without dragging to select the whole window under the pointer
+- After selecting, drag the selection to move it, or drag the eight handles to resize it
+- **Mosaic**: turn it on and drag inside the selection to cover areas. `⌘Z` undoes the last mosaic
+- **OCR**: recognize the text in the selection and copy it
+- **Done**: copy the image. You can also press Return, press `⌘C` or double-click the selection
+- `Esc` cancels. Right-click to clear the selection and start over
 
-截图记录面板：左上角打开截图文件夹，右上角齿轮是设置（语言 / Language、开机自动启动、退出）。拖顶部的小横条可以移动面板，它会记住位置。
+In the history panel, the top-left button opens the screenshots folder and the gear opens Settings (Language / 语言, Launch at Login, Quit). Drag the handle at the top to move the panel. It remembers where you put it.
 
-截图后不会自动识别文字，只有点「识字」或在记录里点「复制文字」时才识别。
+Text is never recognized automatically after a capture. It only happens when you click OCR or choose Copy Text in the history.
 
-## 数据和隐私
+## Data and privacy
 
-- 截图存在 `~/Pictures/ShotShelf/`，记录索引在 `~/Library/Application Support/ShotShelf/index.json`
-- 文字识别用的是系统自带的 Vision 框架，在本机完成
-- 不联网，不收集任何数据
+- Screenshots are saved in `~/Pictures/ShotShelf/`, and the history index in `~/Library/Application Support/ShotShelf/index.json`
+- Text recognition uses Apple's built-in Vision framework and runs on your Mac
+- ShotShelf never connects to the internet and collects no data
 
-## 开发
+## Development
 
 ```bash
 swift build
-.build/debug/ShotShelf --ocr some.png                                   # 打印识别结果
-SHOTSHELF_DIR=/tmp/x .build/debug/ShotShelf --snapshot out.png a.png   # 离屏渲染记录面板
-.build/debug/ShotShelf --preview 5 a.png                                # 在屏幕右上角显示几秒真实的毛玻璃面板
-.build/debug/ShotShelf --grab /tmp/x                                    # 定格所有屏幕并测耗时
-.build/debug/ShotShelf --overlay-snapshot out.png full-screen@2x.png    # 离屏渲染截图界面（带打码和工具条）
+.build/debug/ShotShelf --ocr some.png                                   # print the recognized text
+SHOTSHELF_DIR=/tmp/x .build/debug/ShotShelf --snapshot out.png a.png   # render the history panel offscreen
+.build/debug/ShotShelf --preview 5 a.png                                # show the real glass panel at the top right of the primary screen for a few seconds
+.build/debug/ShotShelf --grab /tmp/x                                    # freeze every display and time it
+.build/debug/ShotShelf --overlay-snapshot out.png full-screen@2x.png    # render the capture screen offscreen (with mosaic and toolbar)
 ```
 
-`SHOTSHELF_DIR` 指向一个临时目录，调试时就不会动到真实的截图记录。
+Add `--en` or `--zh` to preview a language without saving the choice, and `--dark` for dark mode. Point `SHOTSHELF_DIR` at a scratch folder so debugging never touches your real screenshot history.
 
-发布安装包用 `./release.sh`：构建通用二进制、用 Developer ID 签名、提交苹果公证，产物是 `dist/ShotShelf-<版本>.dmg`。
-需要钥匙串里有 Developer ID Application 证书，以及一个 notarytool 凭据（用法见脚本开头的注释）。
-应用图标由 `swift tools/make-icon.swift` 生成。
+To build a release, run `./release.sh`. It builds a universal binary, signs it with a Developer ID, submits it to Apple for notarization and writes `dist/ShotShelf-<version>.dmg`. You need a Developer ID Application certificate in your keychain and a notarytool profile (see the comments at the top of the script). The app icon is generated by `swift tools/make-icon.swift`.
 
-## 许可证
+## License
 
 [MIT](LICENSE)
