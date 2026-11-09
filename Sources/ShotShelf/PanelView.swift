@@ -40,10 +40,14 @@ struct PanelView: View {
 
     let store: ShotStore
     let actions: PanelActions
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             topBar
+            if store.isSearching {
+                searchField
+            }
             if !store.permissionGranted {
                 permissionCard
                     .padding(.horizontal, 12)
@@ -58,6 +62,8 @@ struct PanelView: View {
             Group {
                 if store.shots.isEmpty {
                     emptyState
+                } else if store.isSearching && !searchTokens.isEmpty && store.searchResults.isEmpty {
+                    noResults
                 } else {
                     list
                 }
@@ -87,10 +93,14 @@ struct PanelView: View {
         }
     }
 
+    private var searchTokens: [String] {
+        store.isSearching ? ShotStore.searchTokens(store.searchQuery) : []
+    }
+
     private var rows: [Row] {
         var rows: [Row] = []
         var currentDay: Date?
-        for shot in store.shots {
+        for shot in store.isSearching ? store.searchResults : store.shots {
             let day = Calendar.current.startOfDay(for: shot.createdAt)
             if day != currentDay {
                 rows.append(.header(day))
@@ -112,8 +122,11 @@ struct PanelView: View {
                             .padding(.leading, 4)
                             .padding(.bottom, -8)
                     case .shot(let shot):
-                        ShotItem(shot: shot, store: store)
+                        ShotItem(shot: shot, store: store, tokens: searchTokens)
                     }
+                }
+                if store.isSearching && store.unindexedCount > 0 {
+                    indexingNote
                 }
             }
             .padding(.horizontal, 12)
@@ -125,30 +138,102 @@ struct PanelView: View {
 
     // MARK: - Chrome
 
-    /// Folder at the left, settings at the right, an iOS-style drag handle in between.
+    /// Folder and search at the left, settings at the right, an iOS-style drag handle centered.
     private var topBar: some View {
-        HStack(spacing: 0) {
-            Button(action: actions.openFolder) {
-                roundIcon("folder")
-            }
-            .buttonStyle(.plain)
-            .help(L("打开截图文件夹", "Open screenshots folder"))
+        ZStack {
             Capsule()
                 .fill(Color.ink.opacity(0.2))
                 .frame(width: 36, height: 5)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(width: 80, height: 28)
                 .overlay(WindowDragArea())
                 .help(L("拖动可以移动面板", "Drag to move"))
-            Button(action: actions.showSettings) {
-                roundIcon("gearshape")
+            HStack(spacing: 6) {
+                Button(action: actions.openFolder) {
+                    roundIcon("folder")
+                }
+                .buttonStyle(.plain)
+                .help(L("打开截图文件夹", "Open screenshots folder"))
+                Button(action: toggleSearch) {
+                    roundIcon(store.isSearching ? "xmark" : "magnifyingglass")
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut("f", modifiers: .command)
+                .help(store.isSearching ? L("关闭搜索", "Close search")
+                                        : L("搜索截图里的文字 ⌘F", "Search text in screenshots (⌘F)"))
+                Spacer(minLength: 0)
+                Button(action: actions.showSettings) {
+                    roundIcon("gearshape")
+                }
+                .buttonStyle(.plain)
+                .help(L("设置", "Settings"))
             }
-            .buttonStyle(.plain)
-            .help(L("设置", "Settings"))
         }
         .frame(height: 28)
         .padding(.horizontal, 10)
         .padding(.top, 10)
         .padding(.bottom, 8)
+    }
+
+    private func toggleSearch() {
+        if store.isSearching {
+            store.endSearch()
+        } else {
+            store.isSearching = true
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.inkSoft)
+            TextField(L("搜索截图里的文字", "Search text in screenshots"), text: Bindable(store).searchQuery)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .focused($searchFocused)
+                .onExitCommand {
+                    if store.searchQuery.isEmpty { store.endSearch() } else { store.searchQuery = "" }
+                }
+            if !store.searchQuery.isEmpty {
+                Button { store.searchQuery = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.inkSoft)
+                }
+                .buttonStyle(.plain)
+                .help(L("清空", "Clear"))
+            }
+        }
+        .padding(.horizontal, 11)
+        .frame(height: 30)
+        .background(Color.bubble, in: Capsule())
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+        .onAppear { DispatchQueue.main.async { searchFocused = true } }
+    }
+
+    private var noResults: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "text.magnifyingglass")
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(Color.inkSoft)
+            Text(L("没有截图包含「\(store.searchQuery.trimmingCharacters(in: .whitespaces))」",
+                   "No screenshots contain “\(store.searchQuery.trimmingCharacters(in: .whitespaces))”"))
+                .font(.system(size: 13, weight: .semibold))
+                .multilineTextAlignment(.center)
+            if store.unindexedCount > 0 {
+                indexingNote
+            }
+        }
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var indexingNote: some View {
+        Text(L("还有 \(store.unindexedCount) 张截图正在识别文字", "Still reading text in \(store.unindexedCount) screenshots"))
+            .font(.system(size: 11))
+            .foregroundStyle(Color.inkSoft)
+            .frame(maxWidth: .infinity)
     }
 
     /// Shows the shortcut keys when they fit (Chinese), drops them when they don't (English).
@@ -319,10 +404,40 @@ struct PanelView: View {
 struct ShotItem: View {
     let shot: Shot
     let store: ShotStore
+    /// Search words: show the matching lines instead of the full text.
+    var tokens: [String] = []
     @State private var thumbnail: NSImage?
     @State private var flash: String?
 
     private var url: URL { store.url(for: shot) }
+
+    /// Up to two lines that contain a search word, with every match highlighted. Long lines are
+    /// cut to start shortly before the first match so it stays visible.
+    static func snippet(_ text: String, tokens: [String]) -> AttributedString? {
+        let options = ShotStore.searchOptions
+        let lines = text.split(separator: "\n").map(String.init)
+            .filter { line in tokens.contains { line.range(of: $0, options: options) != nil } }
+        guard !lines.isEmpty else { return nil }
+        let shown = lines.prefix(2).map { line -> String in
+            guard line.count > 60,
+                  let first = tokens.compactMap({ line.range(of: $0, options: options) }).min(by: { $0.lowerBound < $1.lowerBound }),
+                  line.distance(from: line.startIndex, to: first.lowerBound) > 24
+            else { return line }
+            let start = line.index(first.lowerBound, offsetBy: -16)
+            return "…" + line[start...]
+        }
+        var result = AttributedString(shown.joined(separator: "\n"))
+        for token in tokens {
+            var from = result.startIndex
+            while from < result.endIndex, let range = result[from...].range(of: token, options: options) {
+                result[range].backgroundColor = Color.yellow.opacity(0.6)
+                result[range].foregroundColor = Color.black
+                result[range].font = .system(size: 12, weight: .semibold)
+                from = range.upperBound
+            }
+        }
+        return result
+    }
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -347,7 +462,15 @@ struct ShotItem: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             imageBubble
-            if let text = shot.text, !text.isEmpty {
+            if !tokens.isEmpty, let snippet = Self.snippet(shot.text ?? "", tokens: tokens) {
+                Text(snippet)
+                    .font(.system(size: 12))
+                    .lineSpacing(2)
+                    .lineLimit(3)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.bubble, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            } else if shot.showsText, let text = shot.text, !text.isEmpty {
                 Text(text)
                     .font(.system(size: 13))
                     .lineSpacing(2)

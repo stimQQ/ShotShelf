@@ -12,6 +12,12 @@ struct Shot: Identifiable, Codable, Hashable {
     var pixelHeight: Int
     /// Pixels per point (2 on Retina).
     var scale: Double
+    /// Whether the text bubble shows under the image. Text read in the background only feeds
+    /// search; it shows once the user asks for it. nil in older indexes, where text only
+    /// existed after the user asked.
+    var textShown: Bool?
+
+    var showsText: Bool { textShown ?? (text?.isEmpty == false) }
 }
 
 /// Screenshot history. Images live in ~/Pictures/ShotShelf, the index in Application Support.
@@ -76,26 +82,86 @@ final class ShotStore {
         shots.insert(shot, at: 0)
         shots.sort { $0.createdAt > $1.createdAt }
         save()
+        indexInBackground()
         return shot
     }
 
-    func setText(_ text: String, for id: UUID) {
+    /// `show`: put the text bubble under the image (the user asked for the text).
+    func setText(_ text: String, for id: UUID, show: Bool = true) {
         guard let i = shots.firstIndex(where: { $0.id == id }) else { return }
         shots[i].text = text
+        if show {
+            shots[i].textShown = true
+        } else if shots[i].textShown == nil {
+            shots[i].textShown = false
+        }
         save()
     }
 
-    /// Shots whose OCR is running right now.
+    /// Shots whose OCR the user is waiting for right now.
     private(set) var recognizing: Set<UUID> = []
 
-    /// Existing OCR text, or recognize now. OCR only runs when asked for (识字 / 复制文字).
+    /// Existing OCR text, or recognize now (识字 / 复制文字). Either way the text bubble shows.
     func text(for shot: Shot) async -> String {
-        if let text = shots.first(where: { $0.id == shot.id })?.text { return text }
+        if let i = shots.firstIndex(where: { $0.id == shot.id }), let text = shots[i].text {
+            if shots[i].textShown != true {
+                shots[i].textShown = true
+                save()
+            }
+            return text
+        }
         recognizing.insert(shot.id)
         defer { recognizing.remove(shot.id) }
         let text = await OCR.recognize(url(for: shot))
         setText(text, for: shot.id)
         return text
+    }
+
+    // MARK: - Search
+
+    private var indexing: Task<Void, Never>?
+
+    /// Shots whose text hasn't been read yet, so search can't find them.
+    var unindexedCount: Int { shots.reduce(0) { $0 + ($1.text == nil ? 1 : 0) } }
+
+    /// Reads the text of every shot that hasn't been read yet, newest first, one at a time at
+    /// low priority. On-device (Vision), so nothing leaves the Mac.
+    func indexInBackground() {
+        guard indexing == nil else { return }
+        indexing = Task { [weak self] in
+            while let self,
+                  let shot = self.shots.first(where: { $0.text == nil && !self.recognizing.contains($0.id) }) {
+                let text = await OCR.recognize(self.url(for: shot), priority: .utility)
+                if self.shots.first(where: { $0.id == shot.id })?.text == nil {
+                    self.setText(text, for: shot.id, show: false)
+                }
+            }
+            self?.indexing = nil
+        }
+    }
+
+    var isSearching = false
+    var searchQuery = ""
+
+    func endSearch() {
+        isSearching = false
+        searchQuery = ""
+    }
+
+    static let searchOptions: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive, .widthInsensitive]
+
+    static func searchTokens(_ query: String) -> [String] {
+        query.split(whereSeparator: \.isWhitespace).map(String.init)
+    }
+
+    /// Shots whose text contains every word of the query (all shots for an empty query).
+    var searchResults: [Shot] {
+        let tokens = Self.searchTokens(searchQuery)
+        guard !tokens.isEmpty else { return shots }
+        return shots.filter { shot in
+            guard let text = shot.text else { return false }
+            return tokens.allSatisfy { text.range(of: $0, options: Self.searchOptions) != nil }
+        }
     }
 
     /// Moves the file to the Trash (recoverable).
@@ -112,6 +178,7 @@ final class ShotStore {
         guard let saved = try? decoder.decode([Shot].self, from: data) else { return }
         let fm = FileManager.default
         shots = saved.filter { fm.fileExists(atPath: url(for: $0).path) }
+        indexInBackground()
     }
 
     private func save() {

@@ -2,8 +2,8 @@ import Foundation
 import Vision
 
 enum OCR {
-    static func recognize(_ url: URL) async -> String {
-        await Task.detached(priority: .userInitiated) { text(from: url) }.value
+    static func recognize(_ url: URL, priority: TaskPriority = .userInitiated) async -> String {
+        await Task.detached(priority: priority) { text(from: url) }.value
     }
 
     /// On-device text recognition with Apple Vision (offline).

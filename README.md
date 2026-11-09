@@ -15,6 +15,7 @@ A tiny macOS menu bar screenshot tool. Every capture goes straight to the clipbo
 - **Mark it up**: draw boxes, circles and freehand lines on the capture before you copy it
 - **Hide details as you capture**: select an area, click Mosaic and drag over anything you want to cover
 - **Copy text from the screen**: click OCR to recognize the text in the selection and copy it. Mixed Chinese and English text works, and everything stays on your Mac
+- **Search your screenshots**: find a screenshot by a few words you remember, like part of an error message. Click the magnifying glass in the history or press `⌘F`
 - **Drag to share**: drag any screenshot from the history into a chat, the desktop or any other app
 - **Stays out of your way**: just a menu bar icon, no Dock icon, and about 30 MB of memory
 - **English and Chinese UI**: follows your system language, and you can switch in Settings at any time without restarting
@@ -68,14 +69,16 @@ On the capture screen (the display freezes when you press the shortcut):
 - **Done**: copy the image. You can also press Return, press `⌘C` or double-click the selection
 - `Esc` cancels. Right-click to clear the selection and start over
 
-In the history panel, the top-left button opens the screenshots folder and the gear opens Settings (Language / 语言, Launch at Login, Quit). Drag the handle at the top to move the panel. It remembers where you put it.
+In the history panel, the folder button opens the screenshots folder, the magnifying glass searches the text in your screenshots, and the gear opens Settings (Language / 语言, Launch at Login, Quit). Drag the handle at the top to move the panel. It remembers where you put it.
 
-Text is never recognized automatically after a capture. It only happens when you click OCR or choose Copy Text in the history.
+Search matches every word you type, ignoring case, and shows the matching lines with the words highlighted. `Esc` clears the search, and pressing it again closes the search.
+
+To make search work, ShotShelf reads the text in your screenshots in the background at low priority. The text only shows under a screenshot when you click OCR or choose Copy Text.
 
 ## Data and privacy
 
 - Screenshots are saved in `~/Pictures/ShotShelf/`, and the history index in `~/Library/Application Support/ShotShelf/index.json`
-- Text recognition uses Apple's built-in Vision framework and runs on your Mac
+- Text recognition uses Apple's built-in Vision framework and runs on your Mac. The recognized text is kept in the history index for search
 - ShotShelf never connects to the internet and collects no data
 
 ## Development

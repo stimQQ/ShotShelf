@@ -96,6 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func panelDidHide() {
         lastPanelHide = Date()
+        store.endSearch()
         let origin = panel.frame.origin
         if let placed = placedOrigin, hypot(origin.x - placed.x, origin.y - placed.y) > 1 {
             UserDefaults.standard.set(NSStringFromPoint(NSPoint(x: panel.frame.minX, y: panel.frame.maxY)),

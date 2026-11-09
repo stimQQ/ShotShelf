@@ -6,8 +6,8 @@ import SwiftUI
 @MainActor
 enum DevSnapshot {
     /// Renders the panel offscreen to a PNG (no behind-window blur).
-    static func run(output: URL, images: [URL], dark: Bool) {
-        let store = makeStore(images: images)
+    static func run(output: URL, images: [URL], dark: Bool, search: String? = nil) {
+        let store = makeStore(images: images, search: search)
         let host = NSHostingView(rootView: PanelView(store: store, actions: .noop)
             .background(Color(nsColor: .windowBackgroundColor)))
         host.frame = NSRect(origin: .zero, size: PanelView.size)
@@ -25,9 +25,9 @@ enum DevSnapshot {
     }
 
     /// Shows the real glass panel (top-right of the primary screen) plus a toast for `seconds`.
-    static func preview(seconds: Double, images: [URL], dark: Bool, toast: Bool = true) {
+    static func preview(seconds: Double, images: [URL], dark: Bool, toast: Bool = true, search: String? = nil) {
         NSApplication.shared.setActivationPolicy(.accessory)
-        let store = makeStore(images: images)
+        let store = makeStore(images: images, search: search)
         let host = NSHostingView(rootView: PanelView(store: store, actions: .noop))
         let panel = GlassPanel(content: host, size: PanelView.size)
         panel.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
@@ -100,7 +100,7 @@ enum DevSnapshot {
         }
     }
 
-    private static func makeStore(images: [URL]) -> ShotStore {
+    private static func makeStore(images: [URL], search: String? = nil) -> ShotStore {
         let store = ShotStore()
         for (index, source) in images.enumerated() {
             let destination = store.newShotURL()
@@ -110,6 +110,10 @@ enum DevSnapshot {
                                                            : Double((index - images.count) * 600))
             let shot = store.add(url: destination, date: date)
             store.setText(OCR.text(from: destination), for: shot.id)
+        }
+        if let search {
+            store.isSearching = true
+            store.searchQuery = search
         }
         return store
     }
